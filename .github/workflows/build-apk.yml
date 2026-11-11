@@ -1,5 +1,5 @@
 
-name: Build Omnisora 2.0 APK
+name: Build OMNISORA APK
 
 on:
   workflow_dispatch:
@@ -15,8 +15,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source
+      - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Extract application source
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+          unzip -q OMNISORA-source-v0.4.zip -d source
+
+          PACKAGE_JSON="$(find source -name package.json -type f -print -quit)"
+
+          if [ -z "$PACKAGE_JSON" ]; then
+            echo "ERROR: package.json not found in archive"
+            find source -maxdepth 4 -type f | head -200
+            exit 1
+          fi
+
+          PROJECT_DIR="$(dirname "$PACKAGE_JSON")"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Project directory: $PROJECT_DIR"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -29,42 +47,53 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Install project dependencies
-        run: npm install
+      - name: Install dependencies
+        run: |
+          cd "$PROJECT_DIR"
+          npm install
 
       - name: Install Capacitor
         run: |
+          cd "$PROJECT_DIR"
           npm install @capacitor/core@^6 @capacitor/android@^6
           npm install --save-dev @capacitor/cli@^6
 
       - name: Configure Capacitor
         run: |
+          cd "$PROJECT_DIR"
           cat > capacitor.config.json <<'EOF'
           {
             "appId": "com.omnisora.app",
-            "appName": "Omnisora 2.0",
+            "appName": "OMNISORA",
             "webDir": "dist"
           }
           EOF
 
       - name: Build web application
-        run: npm run build
+        run: |
+          cd "$PROJECT_DIR"
+          npm run build
 
       - name: Create Android project
-        run: npx cap add android
+        run: |
+          cd "$PROJECT_DIR"
+          npx cap add android
 
       - name: Sync Android project
-        run: npx cap sync android
+        run: |
+          cd "$PROJECT_DIR"
+          npx cap sync android
 
       - name: Build APK
         run: |
-          cd android
+          cd "$PROJECT_DIR/android"
           chmod +x gradlew
           ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Omnisora-2.0-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: OMNISORA-APK
+          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
