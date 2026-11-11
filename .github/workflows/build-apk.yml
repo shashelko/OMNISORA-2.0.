@@ -68,11 +68,11 @@ jobs:
             "webDir": "dist"
           }
           EOF
-
       - name: Build web application
         run: |
           cd "$PROJECT_DIR"
-          npm run build
+          # Android WebView loads assets from the app root.
+          env -u GITHUB_ACTIONS npm run build
 
       - name: Create Android project
         run: |
